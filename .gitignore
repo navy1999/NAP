@@ -1,0 +1,29 @@
+# Build artifacts
+build/
+*.json
+*.p4i
+*.p4rt
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+venv/
+.env
+
+# Logs
+logs/*.log
+*.pcap
+
+# Results
+results/*
+!results/.gitkeep
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDEs
+.vscode/
+.idea/
+*.swp
