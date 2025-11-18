@@ -1,26 +1,46 @@
 #!/bin/bash
 
-SCHEME=${1:-ecmp}
-SCENARIO=${2:-incast}
+set -e
 
-echo "Running experiment: $SCHEME with $SCENARIO scenario"
+TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+LOG_DIR="../logs"
+RESULTS_DIR="../results"
 
-# Start Mininet topology
-sudo python topology/leaf_spine.py &
-TOPO_PID=$!
+echo "=== Running All Experiments (Timestamp: $TIMESTAMP) ==="
 
-sleep 5
+# Ensure directories exist
+mkdir -p "$LOG_DIR" "$RESULTS_DIR"
 
-# Start controller
-python controller/${SCHEME}_controller.py &
-CTRL_PID=$!
+# Build P4 programs
+echo "Building P4 programs..."
+./build_all.sh
 
-sleep 2
+# Test 1: ECMP Incast
+echo -e "\n=== Test 1: ECMP Incast ==="
+python ../experiments/incast_test.py --config ../configs/experiment_config.json \
+    > "$LOG_DIR/ecmp_incast_$TIMESTAMP.log" 2>&1
 
-# Run traffic scenario
-python experiments/${SCENARIO}_test.py
+# Test 2: HULA Incast
+echo -e "\n=== Test 2: HULA Incast ==="
+python ../experiments/incast_test.py --config ../configs/experiment_config.json \
+    > "$LOG_DIR/hula_incast_$TIMESTAMP.log" 2>&1
 
-# Cleanup
-kill $CTRL_PID $TOPO_PID
+# Test 3: Microburst
+echo -e "\n=== Test 3: Microburst ==="
+python ../experiments/microburst_test.py --config ../configs/experiment_config.json \
+    > "$LOG_DIR/microburst_$TIMESTAMP.log" 2>&1
 
-echo "Experiment complete. Results in results/"
+# Test 4: Link Failure
+echo -e "\n=== Test 4: Link Failure ==="
+python ../experiments/link_failure_test.py --config ../configs/experiment_config.json \
+    > "$LOG_DIR/link_failure_$TIMESTAMP.log" 2>&1
+
+echo -e "\n=== All experiments complete! ==="
+echo "Logs saved to: $LOG_DIR"
+echo "Results saved to: $RESULTS_DIR"
+
+# Generate plots
+echo -e "\n=== Generating plots ==="
+python ../analysis/plot_results.py --all
+
+echo -e "\n✓ Done!"
