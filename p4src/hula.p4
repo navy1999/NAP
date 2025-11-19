@@ -84,7 +84,7 @@ control MyIngress(inout headers hdr,
     
     // Registers for storing path utilization
     register<bit<16>>(8192) path_util_reg;
-    register<bit<9>>(8192) best_port_reg;
+    register<bit<9>>(8192)  best_port_reg;
     
     // Drop action
     action drop() {
@@ -100,23 +100,16 @@ control MyIngress(inout headers hdr,
             hdr.ipv4.ttl = hdr.ipv4.ttl - 1;
         }
     }
-    
-    // Process HULA probe
-    action process_probe() {
-        // Read current best path utilization for destination
-        bit<32> index = hdr.hula.dst_tor;
-        bit<16> current_util;
-        path_util_reg.read(current_util, index);
-        
-        // Update if this path is better
-        if (hdr.hula.path_util < current_util) {
-            path_util_reg.write(index, hdr.hula.path_util);
-            best_port_reg.write(index, (bit<9>)standard_metadata.ingress_port);
-        }
-        
-        // Update probe with local utilization
-        // (In real implementation, would read queue depth)
-        hdr.hula.path_util = hdr.hula.path_util + 1;  // Simplified
+
+    // Unconditional register update for best path
+    action update_best_path(bit<32> index, bit<16> util, bit<9> port) {
+        path_util_reg.write(index, util);
+        best_port_reg.write(index, port);
+    }
+
+    // Update HULA probe header with local info (simplified)
+    action update_probe_header() {
+        hdr.hula.path_util = hdr.hula.path_util + 1;
         hdr.hula.hop_count = hdr.hula.hop_count + 1;
     }
     
@@ -149,12 +142,29 @@ control MyIngress(inout headers hdr,
     apply {
         if (meta.is_probe == 1) {
             // Handle HULA probe
-            process_probe();
+            bit<32> index = hdr.hula.dst_tor;
+            bit<16> current_util;
+            path_util_reg.read(current_util, index);
+
+            // Only update registers if this path is better
+            if (hdr.hula.path_util < current_util) {
+                update_best_path(
+                    index,
+                    hdr.hula.path_util,
+                    (bit<9>) standard_metadata.ingress_port
+                );
+            }
+
+            // Always update the probe header with local info
+            update_probe_header();
+
+            // Forward the probe according to probe_fwd_table
             probe_fwd_table.apply();
+
         } else if (hdr.ipv4.isValid() && hdr.ipv4.ttl > 0) {
             // Handle data packet - use best path
-            bit<32> index = (bit<32>)hdr.ipv4.dstAddr;
-            bit<9> best_port;
+            bit<32> index = (bit<32>) hdr.ipv4.dstAddr;
+            bit<9>  best_port;
             best_port_reg.read(best_port, index);
             
             if (best_port != 0) {

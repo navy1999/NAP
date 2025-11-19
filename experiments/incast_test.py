@@ -37,13 +37,13 @@ class IncastTest:
         duration = incast_config['duration_sec']
         bandwidth = incast_config['bandwidth_per_flow']
         
-        print(f"\n{'='*60}")
-        print(f"INCAST TEST: {num_senders} senders → 1 receiver")
-        print(f"Duration: {duration}s, Per-flow BW: {bandwidth}")
-        print(f"{'='*60}\n")
+        print("\n" + "=" * 60)
+        print("INCAST TEST: {} senders \u2192 1 receiver".format(num_senders))
+        print("Duration: {}s, Per-flow BW: {}".format(duration, bandwidth))
+        print("=" * 60 + "\n")
         
         # Generate sender and receiver IPs
-        senders = [f"10.0.1.{i+1}" for i in range(num_senders)]
+        senders = ["10.0.1.{}".format(i + 1) for i in range(num_senders)]
         receiver = "10.0.2.1"
         
         # Run incast pattern
@@ -60,7 +60,7 @@ class IncastTest:
         
         # Save results
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        results_file = f"incast_results_{timestamp}.json"
+        results_file = "incast_results_{}.json".format(timestamp)
         self.save_results(results_file)
     
     def calculate_metrics(self):
@@ -73,34 +73,40 @@ class IncastTest:
         
         total_bytes = sum(f.get('bytes_transferred', 0) for f in flows)
         total_retransmits = sum(f.get('retransmits', 0) for f in flows)
-        avg_throughput = sum(f.get('bits_per_second', 0) for f in flows) / len(flows)
+        avg_throughput = sum(f.get('bits_per_second', 0) for f in flows) / float(len(flows))
+        
+        packet_loss_rate = 0.0
+        denom = max(total_bytes / 1500.0, 1.0)
+        packet_loss_rate = total_retransmits / denom
+        
+        num_successful = len([f for f in flows if 'error' not in f])
         
         metrics = {
             'total_bytes_transferred': total_bytes,
             'total_retransmits': total_retransmits,
             'average_throughput_bps': avg_throughput,
-            'packet_loss_rate': total_retransmits / max(total_bytes / 1500, 1),
-            'num_successful_flows': len([f for f in flows if 'error' not in f])
+            'packet_loss_rate': packet_loss_rate,
+            'num_successful_flows': num_successful
         }
         
         self.results['metrics'] = metrics
         
-        print("\n" + "="*60)
+        print("\n" + "=" * 60)
         print("TEST RESULTS:")
-        print("="*60)
-        print(f"Total bytes transferred: {total_bytes / (1024**2):.2f} MB")
-        print(f"Total retransmits: {total_retransmits}")
-        print(f"Average throughput: {avg_throughput / (1024**2):.2f} Mbps")
-        print(f"Packet loss rate: {metrics['packet_loss_rate']:.4f}")
-        print(f"Successful flows: {metrics['num_successful_flows']}/{len(flows)}")
-        print("="*60 + "\n")
+        print("=" * 60)
+        print("Total bytes transferred: {:.2f} MB".format(total_bytes / (1024.0 ** 2)))
+        print("Total retransmits: {}".format(total_retransmits))
+        print("Average throughput: {:.2f} Mbps".format(avg_throughput / (1024.0 ** 2)))
+        print("Packet loss rate: {:.4f}".format(packet_loss_rate))
+        print("Successful flows: {}/{}".format(num_successful, len(flows)))
+        print("=" * 60 + "\n")
     
     def save_results(self, filename: str):
         """Save test results"""
-        filepath = f"../results/{filename}"
+        filepath = "../results/{}".format(filename)
         with open(filepath, 'w') as f:
             json.dump(self.results, f, indent=2)
-        print(f"✓ Results saved to {filepath}")
+        print("\u2713 Results saved to {}".format(filepath))
 
 
 def main():
